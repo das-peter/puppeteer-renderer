@@ -27,7 +27,7 @@ app.use(async (req, res, next) => {
   console.log('Options', options)
 
   if (!url) {
-    return res.status(400).send('Search with url parameter. For eaxample, ?url=http://yourdomain')
+    return res.status(400).send('Search with url parameter. For example, ?url=http://yourdomain')
   }
 
   if (!url.includes('://')) {
