@@ -15,8 +15,8 @@ let renderer = null
 app.disable('x-powered-by')
 
 var bodyParser = require('body-parser')
-app.use(bodyParser.json()) // support json encoded bodies
-app.use(bodyParser.urlencoded({ extended: true })) // support encoded bodies
+app.use(bodyParser.json({limit: '500mb'})) // support json encoded bodies
+app.use(bodyParser.urlencoded({limit: '500mb', extended: true })) // support encoded bodies
 
 // Render url.
 app.use(async (req, res, next) => {
