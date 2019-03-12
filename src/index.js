@@ -14,9 +14,17 @@ let renderer = null
 // Configure.
 app.disable('x-powered-by')
 
+var bodyParser = require('body-parser')
+app.use(bodyParser.json()) // support json encoded bodies
+app.use(bodyParser.urlencoded({ extended: true })) // support encoded bodies
+
 // Render url.
 app.use(async (req, res, next) => {
-  let { url, type, ...options } = req.query
+  let { url, type, ...options } = Object.assign(req.query || {}, req.body || {})
+
+  console.log('Fetching', url)
+  console.log('Generating', type)
+  console.log('Options', options)
 
   if (!url) {
     return res.status(400).send('Search with url parameter. For eaxample, ?url=http://yourdomain')
