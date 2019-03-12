@@ -40,20 +40,40 @@ class Renderer {
       const {
         scale,
         displayHeaderFooter,
+        headerTemplate,
+        footerTemplate,
         printBackground,
         preferCSSPageSize,
         landscape,
+        marginTop,
+        marginRight,
+        marginBottom,
+        marginLeft,
       } = extraOptions
-      const buffer = await page.pdf({
+
+      const renderOptions = {
         ...extraOptions,
         scale: Number(scale || 1),
         paperWidth: Number(extraOptions.width || 0) || '8.5in',
         paperHeight: Number(extraOptions.height || 0) || '11in',
         preferCSSPageSize: preferCSSPageSize === 'true',
         displayHeaderFooter: displayHeaderFooter === 'true',
+        headerTemplate: extraOptions.headerTemplate,
+        footerTemplate: extraOptions.footerTemplate,
         printBackground: printBackground === 'true',
         landscape: landscape === 'true',
-      })
+        margin: {
+          top: (extraOptions.marginTop || 0),
+          right: (extraOptions.marginRight || 0),
+          bottom: (extraOptions.marginBottom || 0),
+          left: (extraOptions.marginLeft || 0),
+        }
+      };
+      console.log('Render Options')
+      console.log(renderOptions)
+      console.log('END -----------------------------')
+
+      const buffer = await page.pdf(renderOptions)
       return buffer
     } finally {
       if (page) {
