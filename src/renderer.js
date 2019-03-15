@@ -31,55 +31,73 @@ class Renderer {
     }
   }
 
-  async pdf(url, options = {}) {
+  async pdfFromUrl(url, options = {}) {
     let page = null
     try {
       const { timeout, waitUntil, ...extraOptions } = options
-      page = await this.createPage(url, { timeout, waitUntil })
-
-      const {
-        scale,
-        displayHeaderFooter,
-        headerTemplate,
-        footerTemplate,
-        printBackground,
-        preferCSSPageSize,
-        landscape,
-        marginTop,
-        marginRight,
-        marginBottom,
-        marginLeft,
-      } = extraOptions
-
-      const renderOptions = {
-        ...extraOptions,
-        scale: Number(scale || 1),
-        paperWidth: Number(extraOptions.width || 0) || '8.5in',
-        paperHeight: Number(extraOptions.height || 0) || '11in',
-        preferCSSPageSize: preferCSSPageSize === 'true',
-        displayHeaderFooter: displayHeaderFooter === 'true',
-        headerTemplate: extraOptions.headerTemplate,
-        footerTemplate: extraOptions.footerTemplate,
-        printBackground: printBackground === 'true',
-        landscape: landscape === 'true',
-        margin: {
-          top: (extraOptions.marginTop || 0),
-          right: (extraOptions.marginRight || 0),
-          bottom: (extraOptions.marginBottom || 0),
-          left: (extraOptions.marginLeft || 0),
-        }
-      };
-      console.log('Render Options')
-      console.log(renderOptions)
-      console.log('END -----------------------------')
-
-      const buffer = await page.pdf(renderOptions)
-      return buffer
+      const page = await this.createPage(url, { timeout, waitUntil })
+      const buffer = await this.pageBuffer(page, extraOptions)
+      return buffer;
     } finally {
       if (page) {
         await page.close()
       }
     }
+  }
+
+  async pdfFromHtml(html, options = {}) {
+    let page = null
+    try {
+      page = await this.createPageFromHtml(html)
+      const buffer = await this.pageBuffer(page, options)
+      return buffer;
+    } finally {
+      if (page) {
+        await page.close()
+      }
+    }
+  }
+
+  async pageBuffer(page, options) {
+    const { timeout, waitUntil, ...extraOptions } = options
+
+    const {
+      scale,
+      displayHeaderFooter,
+      headerTemplate,
+      footerTemplate,
+      printBackground,
+      preferCSSPageSize,
+      landscape,
+      marginTop,
+      marginRight,
+      marginBottom,
+      marginLeft,
+    } = extraOptions
+
+    const renderOptions = {
+      ...extraOptions,
+      scale: Number(scale || 1),
+      paperWidth: Number(extraOptions.width || 0) || '8.5in',
+      paperHeight: Number(extraOptions.height || 0) || '11in',
+      preferCSSPageSize: preferCSSPageSize === 'true',
+      displayHeaderFooter: displayHeaderFooter === 'true',
+      headerTemplate: extraOptions.headerTemplate,
+      footerTemplate: extraOptions.footerTemplate,
+      printBackground: printBackground === 'true',
+      landscape: landscape === 'true',
+      margin: {
+        top: (extraOptions.marginTop || 0),
+        right: (extraOptions.marginRight || 0),
+        bottom: (extraOptions.marginBottom || 0),
+        left: (extraOptions.marginLeft || 0),
+      }
+    };
+    console.log('Render Options')
+    console.log(renderOptions)
+    console.log('END -----------------------------')
+
+    return await page.pdf(renderOptions)
   }
 
   async screenshot(url, options = {}) {
@@ -106,6 +124,12 @@ class Renderer {
         await page.close()
       }
     }
+  }
+
+  async createPageFromHtml(html) {
+    const page = await this.browser.newPage()
+    await page.setContent(html)
+    return page
   }
 
   async close() {

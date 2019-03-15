@@ -21,31 +21,54 @@ app.use(bodyParser.urlencoded({limit: '500mb', extended: true })) // support enc
 // Render url.
 app.use(async (req, res, next) => {
   let { url, type, ...options } = Object.assign(req.query || {}, req.body || {})
+  const html = options.html;
 
-  console.log('Fetching', url)
-  console.log('Generating', type)
-  console.log('Options', options)
+  console.log('HTML', typeof html);
 
-  if (!url) {
+  if (!url && !html) {
     return res.status(400).send('Search with url parameter. For example, ?url=http://yourdomain')
   }
 
-  if (!url.includes('://')) {
+  if (url && !url.includes('://')) {
     url = `http://${url}`
+    console.log('Fetching from URL', url)
   }
+  if (html) {
+    console.log('Generating using passed in HTML')
+    url = false
+    if (!options.filename) {
+      return res.status(400).send('Please specify the filename to use for the rendered html')
+    }
+  }
+
+  console.log('Generating', type)
+  console.log('Options', options)
 
   try {
     switch (type) {
       case 'pdf':
-        const urlObj = new URL(url)
-        let filename = urlObj.hostname
-        if (urlObj.pathname !== '/') {
-          filename = urlObj.pathname.split('/').pop()
-          if (filename === '') filename = urlObj.pathname.replace(/\//g, '')
-          const extDotPosition = filename.lastIndexOf('.')
-          if (extDotPosition > 0) filename = filename.substring(0, extDotPosition)
+        let filename = options.filename;
+        let pdf;
+        if (url) {
+          console.log('URL-PDF');
+          const urlObj = new URL(url)
+          if (!filename) {
+            console.log('Autocreate filename')
+            let filename = urlObj.hostname
+            if (urlObj.pathname !== '/') {
+              filename = urlObj.pathname.split('/').pop()
+              if (filename === '') filename = urlObj.pathname.replace(/\//g, '')
+              const extDotPosition = filename.lastIndexOf('.')
+              if (extDotPosition > 0) filename = filename.substring(0, extDotPosition)
+            }
+          }
+          pdf = await renderer.pdfFromUrl(url, options)
         }
-        const pdf = await renderer.pdf(url, options)
+        else {
+          console.log('HTML-PDF');
+          pdf = await renderer.pdfFromHtml(html, options)
+        }
+        console.log('PDF', pdf);
         res
           .set({
             'Content-Type': 'application/pdf',
@@ -66,8 +89,8 @@ app.use(async (req, res, next) => {
         break
 
       default:
-        const html = await renderer.render(url, options)
-        res.status(200).send(html)
+        const returnHtml = await renderer.render(url, options)
+        res.status(200).send(returnHtml)
     }
   } catch (e) {
     next(e)
