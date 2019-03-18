@@ -58,6 +58,8 @@ app.listen(8080);
 |(Extra options)|    |                     |Extra options (see [puppeteer API doc](https://github.com/GoogleChrome/puppeteer/blob/v1.1.0/docs/api.md#pagepdfoptions)) |`http://puppeteer-renderer?url=http://www.google.com&type=pdf&scale=2`|
 |`filename`| no      |                     |Manually set the filename||
 |`html`    | no      |                     |Overrides as set url and renders the given html||
+|`fullHtmlHeaderFooter`    | no      | boolean | If enabled the header / footer is pre-rendered as html page ||
+|`dispositionInline`    | no | boolean | If enabled the pdf isn't explicitely sent as download ||
 
 ## PDF File Name Convention
 

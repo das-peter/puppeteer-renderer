@@ -2,6 +2,11 @@
 
 const puppeteer = require('puppeteer')
 
+// Load Hummus for extended pdf manipulation
+const HummusRecipe = require('hummus-recipe')
+const fs = require('fs')
+const tmp = require('tmp');
+
 class Renderer {
   constructor(browser) {
     this.browser = browser
@@ -78,8 +83,8 @@ class Renderer {
     const renderOptions = {
       ...extraOptions,
       scale: Number(scale || 1),
-      paperWidth: Number(extraOptions.width || 0) || '8.5in',
-      paperHeight: Number(extraOptions.height || 0) || '11in',
+      //paperWidth: extraOptions.width || '',
+      //paperHeight: extraOptions.height || '',
       preferCSSPageSize: preferCSSPageSize === 'true',
       displayHeaderFooter: displayHeaderFooter === 'true',
       headerTemplate: extraOptions.headerTemplate,
@@ -93,8 +98,13 @@ class Renderer {
         left: (extraOptions.marginLeft || 0),
       }
     };
+    if (renderOptions.fullHtmlHeaderFooter && renderOptions.fullHtmlHeaderFooter === 'true') {
+      renderOptions.displayHeaderFooter = false;
+      renderOptions.headerTemplate = '';
+      renderOptions.footerTemplate = '';
+    }
     console.log('Render Options')
-    console.log(renderOptions)
+    console.log(JSON.stringify(renderOptions, null, 4));
     console.log('END -----------------------------')
 
     return await page.pdf(renderOptions)
@@ -130,6 +140,97 @@ class Renderer {
     const page = await this.browser.newPage()
     await page.setContent(html)
     return page
+  }
+
+  async addFullHtmlHeaderFooter(pdf, options) {
+
+    if (!options.displayHeaderFooter || options.displayHeaderFooter !== 'true') {
+      return pdf;
+    }
+    if (!options.fullHtmlHeaderFooter || options.fullHtmlHeaderFooter !== 'true') {
+      return pdf;
+    }
+
+    const renderOptions = {
+      scale: 1,
+      preferCSSPageSize: 'true',
+      displayHeaderFooter: false,
+      printBackground: 'true',
+      margin: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0,
+      }
+    };
+
+    let headerPdfPath = tmp.tmpNameSync();
+    let footerPdfPath = tmp.tmpNameSync();
+    let outputPdfPath = tmp.tmpNameSync();
+    let tmpPdfPath = tmp.tmpNameSync();
+    tmp.setGracefulCleanup();
+
+    try {
+      fs.writeFile(tmpPdfPath, pdf, function(err) {
+        if(err) {
+          return console.log(err);
+        }
+      });
+
+      let headerPDF = false;
+      let footerPDF = false;
+      if (options.headerTemplate) {
+        let headerPDFContent = await this.pdfFromHtml(options.headerTemplate, renderOptions)
+
+        headerPDF = new HummusRecipe(headerPDFContent, headerPdfPath);
+        headerPDF.endPDF(()=>{ /* done! */ });
+      }
+      if (options.footerTemplate) {
+        let footerPDFContent = await this.pdfFromHtml(options.footerTemplate, renderOptions)
+        footerPDF = new HummusRecipe(footerPDFContent, footerPdfPath);
+        footerPDF.endPDF(()=>{ /* done! */ });
+      }
+
+      // var contents = fs.readFileSync(headerPdfPath);
+      // console.log(contents);
+
+      let pdfDoc = new HummusRecipe(pdf, outputPdfPath);
+
+  //    console.log(JSON.stringify(pdfDoc.metadata, null, 4));
+
+      // @TODO add support for placeholders.
+      // date formatted print date
+      // title document title
+      // url document location
+      // pageNumber current page number
+      // totalPages total pages in the document
+
+
+      // Iterate over all pages.
+      for(var p in pdfDoc.metadata) {
+        if (!isNaN(p) && (headerPDF || footerPDF)) {
+          // Issue: https://github.com/chunyenHuang/hummusRecipe/issues/43
+          pdfDoc
+            .editPage(p); // without this line, it errors trying to destructure the metadata since there is no current page being edited; see below
+          if (headerPDF) {
+            pdfDoc.overlay(headerPdfPath, 0, (Number(pdfDoc.metadata[p].height)  * -1) + headerPDF.metadata[1].height)
+          }
+          if (footerPDF) {
+            pdfDoc.overlay(footerPdfPath)
+          }
+          pdfDoc.endPage() // without this line the call to endPDF throws `Unable to end PDF`
+        }
+      }
+      //console.log(JSON.stringify(pdfDoc.metadata[1].height, null, 4));
+
+      pdfDoc
+        .endPDF(()=>{ /* done! */ })
+
+      var contents = fs.readFileSync(outputPdfPath);
+    }
+    finally {
+    }
+    return contents;
   }
 
   async close() {

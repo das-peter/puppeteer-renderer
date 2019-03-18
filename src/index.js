@@ -1,29 +1,27 @@
 'use strict'
 
-const express = require('express')
-const { URL } = require('url')
-const contentDisposition = require('content-disposition')
-const createRenderer = require('./renderer')
+  const express = require('express')
+  const { URL } = require('url')
+  const contentDisposition = require('content-disposition')
+  const createRenderer = require('./renderer')
 
-const port = process.env.PORT || 3000
+  const port = process.env.PORT || 3000
 
-const app = express()
+  const app = express()
 
-let renderer = null
+  let renderer = null
 
 // Configure.
-app.disable('x-powered-by')
+  app.disable('x-powered-by')
 
-var bodyParser = require('body-parser')
-app.use(bodyParser.json({limit: '500mb'})) // support json encoded bodies
-app.use(bodyParser.urlencoded({limit: '500mb', extended: true })) // support encoded bodies
+  var bodyParser = require('body-parser')
+  app.use(bodyParser.json({limit: '500mb'})) // support json encoded bodies
+  app.use(bodyParser.urlencoded({limit: '500mb', extended: true })) // support encoded bodies
 
 // Render url.
-app.use(async (req, res, next) => {
-  let { url, type, ...options } = Object.assign(req.query || {}, req.body || {})
-  const html = options.html;
-
-  console.log('HTML', typeof html);
+  app.use(async (req, res, next) => {
+    let { url, type, ...options } = Object.assign(req.query || {}, req.body || {})
+    const html = options.html;
 
   if (!url && !html) {
     return res.status(400).send('Search with url parameter. For example, ?url=http://yourdomain')
@@ -40,6 +38,8 @@ app.use(async (req, res, next) => {
       return res.status(400).send('Please specify the filename to use for the rendered html')
     }
   }
+  console.log('URL', url);
+  console.log('html', html);
 
   console.log('Generating', type)
   console.log('Options', options)
@@ -68,12 +68,14 @@ app.use(async (req, res, next) => {
           console.log('HTML-PDF');
           pdf = await renderer.pdfFromHtml(html, options)
         }
-        console.log('PDF', pdf);
+
+        pdf = await renderer.addFullHtmlHeaderFooter(pdf, options);
+
         res
           .set({
             'Content-Type': 'application/pdf',
             'Content-Length': pdf.length,
-            'Content-Disposition': contentDisposition(filename + '.pdf'),
+            'Content-Disposition': contentDisposition(filename + '.pdf', {type: ((options.dispositionInline) ? 'inline' : 'attachment')}),
           })
           .send(pdf)
         break
