@@ -10,7 +10,7 @@ RUN install -onode -gnode -d /opt/app
 ADD https://github.com/Yelp/dumb-init/releases/download/v1.2.2/dumb-init_1.2.2_amd64 /usr/local/bin/dumb-init
 RUN chmod +x /usr/local/bin/dumb-init
 
-RUN echo "dumb-init node --inspect=0.0.0.0:56745 src/index.js" > /start.sh; chmod +x /start.sh
+RUN echo "dumb-init node src/index.js" > /start.sh; chmod +x /start.sh
 
 ARG BUILD_DEV
 ARG BUILD_DEV_PORT=56745
