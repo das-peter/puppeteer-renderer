@@ -2,7 +2,7 @@
   "name": "puppeteer-renderer",
   "author": "yeongjinnn@gmail.com",
   "private": true,
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "",
   "main": "src/index.js",
   "scripts": {
@@ -23,7 +23,7 @@
     "express": "^4.16.4",
     "hummus": "^1.0.95",
     "hummus-recipe": "^1.8.4",
-    "puppeteer": "^1.12.2",
+    "puppeteer": "^1.13.0",
     "tmp": "0.0.33"
   },
   "devDependencies": {
