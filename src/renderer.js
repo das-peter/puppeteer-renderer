@@ -10,6 +10,7 @@ const tmp = require('tmp');
 class Renderer {
   constructor(browser) {
     this.browser = browser
+    tmp.setGracefulCleanup();
   }
 
   async createPage(url, options = {}) {
@@ -98,11 +99,18 @@ class Renderer {
         left: (extraOptions.marginLeft || 0),
       }
     };
-    if (renderOptions.fullHtmlHeaderFooter && renderOptions.fullHtmlHeaderFooter === 'true') {
+    if (options.fullHtmlHeaderFooter && options.fullHtmlHeaderFooter !== 'false') {
       renderOptions.displayHeaderFooter = false;
-      renderOptions.headerTemplate = '';
-      renderOptions.footerTemplate = '';
     }
+    if (options.fullHtmlHeader && options.fullHtmlHeader !== 'false') {
+      // Ensure the header is not set by regular handler.
+      renderOptions.headerTemplate = ' ';
+    }
+    if (options.fullHtmlFooter && options.fullHtmlFooter !== 'false') {
+      // Ensure the footer is not set by regular handler.
+      renderOptions.footerTemplate = ' ';
+    }
+
     console.log('Render Options')
     console.log(JSON.stringify(renderOptions, null, 4));
     console.log('END -----------------------------')
@@ -147,7 +155,15 @@ class Renderer {
     if (!options.displayHeaderFooter || options.displayHeaderFooter !== 'true') {
       return pdf;
     }
-    if (!options.fullHtmlHeaderFooter || options.fullHtmlHeaderFooter !== 'true') {
+    if (options.fullHtmlHeader && options.fullHtmlHeader !== 'false') {
+      options.fullHtmlHeaderFooter = true;
+      options.headerTemplate = options.fullHtmlHeader;
+    }
+    if (options.fullHtmlFooter && options.fullHtmlFooter !== 'false') {
+      options.fullHtmlHeaderFooter = true;
+      options.footerTemplate = options.fullHtmlFooter;
+    }
+    if (!options.fullHtmlHeaderFooter || options.fullHtmlHeaderFooter === 'false') {
       return pdf;
     }
 
@@ -164,11 +180,9 @@ class Renderer {
       }
     };
 
-    let headerPdfPath = tmp.tmpNameSync();
     let footerPdfPath = tmp.tmpNameSync();
     let outputPdfPath = tmp.tmpNameSync();
     let tmpPdfPath = tmp.tmpNameSync();
-    tmp.setGracefulCleanup();
 
     try {
       fs.writeFile(tmpPdfPath, pdf, function(err) {
@@ -177,46 +191,33 @@ class Renderer {
         }
       });
 
-      let headerPDF = false;
-      let footerPDF = false;
-      if (options.headerTemplate) {
-        let headerPDFContent = await this.pdfFromHtml(options.headerTemplate, renderOptions)
-
-        headerPDF = new HummusRecipe(headerPDFContent, headerPdfPath);
-        headerPDF.endPDF(()=>{ /* done! */ });
-      }
-      if (options.footerTemplate) {
-        let footerPDFContent = await this.pdfFromHtml(options.footerTemplate, renderOptions)
-        footerPDF = new HummusRecipe(footerPDFContent, footerPdfPath);
-        footerPDF.endPDF(()=>{ /* done! */ });
-      }
-
       // var contents = fs.readFileSync(headerPdfPath);
       // console.log(contents);
 
       let pdfDoc = new HummusRecipe(pdf, outputPdfPath);
 
-  //    console.log(JSON.stringify(pdfDoc.metadata, null, 4));
-
-      // @TODO add support for placeholders.
-      // date formatted print date
-      // title document title
-      // url document location
-      // pageNumber current page number
-      // totalPages total pages in the document
-
+      console.log(JSON.stringify(pdfDoc.metadata, null, 4));
 
       // Iterate over all pages.
       for(var p in pdfDoc.metadata) {
-        if (!isNaN(p) && (headerPDF || footerPDF)) {
+        if (!isNaN(p) && (options.headerTemplate || options.footerTemplate)) {
           // Issue: https://github.com/chunyenHuang/hummusRecipe/issues/43
           pdfDoc
             .editPage(p); // without this line, it errors trying to destructure the metadata since there is no current page being edited; see below
-          if (headerPDF) {
-            pdfDoc.overlay(headerPdfPath, 0, (Number(pdfDoc.metadata[p].height)  * -1) + headerPDF.metadata[1].height)
+          if (options.headerTemplate) {
+            let headerPDF = await this.getHeaderPDF(options.headerTemplate, renderOptions, p, pdfDoc.metadata.pages);
+            if (headerPDF) {
+              const headerPDFDoc = new HummusRecipe(headerPDF, headerPDF);
+              pdfDoc.overlay(headerPDF, 0, (Number(pdfDoc.metadata[p].height)  * -1) + headerPDFDoc.metadata[1].height)
+            }
           }
-          if (footerPDF) {
-            pdfDoc.overlay(footerPdfPath)
+          if (options.footerTemplate) {
+            let footerPdf = await this.getFooterPDF(options.footerTemplate, renderOptions, p, pdfDoc.metadata.pages);
+            if (footerPdf) {
+              const footerPDFDoc = new HummusRecipe(footerPdf, footerPdf);
+              pdfDoc.overlay(footerPdf, 0, 0);
+
+            }
           }
           pdfDoc.endPage() // without this line the call to endPDF throws `Unable to end PDF`
         }
@@ -231,6 +232,56 @@ class Renderer {
     finally {
     }
     return contents;
+  }
+
+  /**
+   * Generate the PDF to merge into the main document.
+   *
+   * Will re-generate only if the pageNumber placeholder is used.
+   *
+   * @TODO Can we do a pdf text replace instead a re-generate? Might be faster.
+   */
+  async getHeaderPDF(html, renderOptions, pageNumber, totalPages) {
+    // Check if this header needs to be regenerated for each page.
+    if (pageNumber == 1) {
+      this.headerRegenerate = html.search('{pageNumber}') > -1;
+    }
+    if (this.headerRegenerate || pageNumber == 1 || typeof this.headerPDF === 'undefined') {
+      this.headerPDF = this.generateOverlayPDF(html, renderOptions, pageNumber, totalPages)
+    }
+    return this.headerPDF;
+  }
+
+  /**
+   * Generate the PDF to merge into the main document.
+   *
+   * Will re-generate only if the pageNumber placeholder is used.
+   *
+   * @TODO Can we do a pdf text replace instead a re-generate? Might be faster.
+   */
+  async getFooterPDF(html, renderOptions, pageNumber, totalPages) {
+    // Check if this header needs to be regenerated for each page.
+    if (pageNumber == 1) {
+      this.footerRegenerate = html.search('{pageNumber}') > -1;
+    }
+    if (this.footerRegenerate || pageNumber == 1 ||typeof this.footerPDF === 'undefined') {
+      this.footerPDF = this.generateOverlayPDF(html, renderOptions, pageNumber, totalPages)
+    }
+    return this.footerPDF;
+  }
+
+  async generateOverlayPDF(html, renderOptions, pageNumber, totalPages) {
+    html = html
+      .replace('{pageNumber}', pageNumber)
+      .replace('{totalPages}', totalPages)
+    let overlayPdfFile = tmp.tmpNameSync();
+    renderOptions.margin = {top:0, right: 0, bottom: 0, left: 0};
+    // console.log('OverlayRenderOptions', renderOptions);
+    let overlayPDFContent = await this.pdfFromHtml(html, renderOptions)
+    let overlayPDF = new HummusRecipe(overlayPDFContent, overlayPdfFile);
+    overlayPDF.endPDF(()=>{ /* done! */ });
+    // console.log('Overlay Metadata', overlayPDF.metadata)
+    return overlayPdfFile;
   }
 
   async close() {

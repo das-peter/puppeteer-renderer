@@ -59,6 +59,8 @@ app.listen(8080);
 |`filename`| no      |                     |Manually set the filename||
 |`html`    | no      |                     |Overrides as set url and renders the given html||
 |`fullHtmlHeaderFooter`    | no      | boolean | If enabled the header / footer is pre-rendered as html page ||
+|`fullHtmlHeader`    | no      | string | If set header is processed as full HTML. ||
+|`fullHtmlFooter`    | no      | string | If set footer is processed as full HTML. ||
 |`dispositionInline`    | no | boolean | If enabled the pdf isn't explicitely sent as download ||
 
 ## PDF File Name Convention
